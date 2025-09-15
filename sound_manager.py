@@ -2,7 +2,10 @@ import platform
 import subprocess
 import threading
 import os
-import winsound  # Only exists on Windows
+
+# Only import winsound if on Windows
+if platform.system() == "Windows":
+    import winsound
 
 class SoundManager:
     def __init__(self, sound_file="Ping.wav"):
