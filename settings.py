@@ -1,1 +1,7 @@
-ALERT_SOUND_PATH = "/System/Library/Sounds/Ping.aiff"  # Default sound (can be changed to any .aiff or .wav file)
+EAR_THRESHOLD = 0.2
+CLOSED_FRAMES_TRIGGER = 12
+CAM_INDEX = 0
+FLASH_DURATION = 1.0
+MESSAGE_DURATION = 2.0
+ALERT_SOUND_PATH = "/System/Library/Sounds/Ping.aiff"
+DRAW_OVERLAY = True

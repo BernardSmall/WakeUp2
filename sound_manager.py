@@ -1,29 +1,47 @@
+import os
 import platform
 import subprocess
 import threading
-import os
 
-# Only import winsound if on Windows
+from settings import ALERT_SOUND_PATH
+
+
 if platform.system() == "Windows":
     import winsound
 
+
 class SoundManager:
-    def __init__(self, sound_file="Ping.wav"):
+    def __init__(self, sound_file=ALERT_SOUND_PATH):
         self.sound_file = sound_file
+        self._lock = threading.Lock()
+        self._playback_thread = None
 
     def play_sound(self):
-        """Play the sound in a separate thread so it doesn't block the main loop."""
-        threading.Thread(target=self._play, daemon=True).start()
+        """Start one non-blocking playback, ignoring requests while it is active."""
+        with self._lock:
+            if self._playback_thread and self._playback_thread.is_alive():
+                return False
+
+            self._playback_thread = threading.Thread(target=self._play, daemon=True)
+            self._playback_thread.start()
+            return True
 
     def _play(self):
-        if not os.path.exists(self.sound_file):
-            print(f"Sound file not found: {self.sound_file}")
+        if not os.path.isfile(self.sound_file):
+            print(f"Alert sound file not found: {self.sound_file}")
             return
 
         system = platform.system()
-        if system == "Darwin":  # macOS
-            subprocess.call(["afplay", self.sound_file])
+        if system == "Darwin":
+            command = ["afplay", self.sound_file]
+            try:
+                result = subprocess.run(command, check=False)
+            except FileNotFoundError:
+                print("Cannot play alert: macOS 'afplay' command was not found.")
+                return
+            if result.returncode:
+                print(f"Alert playback failed with exit code {result.returncode}.")
         elif system == "Windows":
             winsound.PlaySound(self.sound_file, winsound.SND_FILENAME)
         else:
-            print("Unsupported OS for SoundManager")
+            print(f"Sound playback is unsupported on {system}.")

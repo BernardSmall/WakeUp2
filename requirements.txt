@@ -1,0 +1,11 @@
+mediapipe==0.10.21
+opencv-contrib-python==4.11.0.86
+numpy==1.26.4
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+pyobjc-core==12.2.2
+pyobjc-framework-AVFoundation==12.2.2
+pyobjc-framework-Cocoa==12.2.2
+pyobjc-framework-CoreAudio==12.2.2
+pyobjc-framework-CoreMedia==12.2.2
+pyobjc-framework-Quartz==12.2.2
