@@ -1,4 +1,3 @@
-import platform
 import threading
 import time
 from datetime import datetime, timezone
@@ -9,6 +8,7 @@ import cv2
 from backend.config import DetectionSettings
 from backend.detection.drowsiness_detector import DrowsinessDetector
 from backend.detection.camera_discovery import CameraDevice, discover_cameras
+from backend.detection.camera_platform import open_camera
 from backend.detection.eye_tracker import (
     LEFT_EYE,
     RIGHT_EYE,
@@ -146,9 +146,28 @@ class CameraManager:
 
     def cameras(self):
         devices, discovery_error = self._refresh_devices()
-        settings = self.settings_service.get()
-        with self._lock:
-            notice = self._camera_notice
+        with self._lifecycle_lock:
+            settings = self.settings_service.get()
+            monitoring = self.snapshot()["monitoring"]
+            matching_device = next(
+                (device for device in devices if device.camera_id == settings.camera_id),
+                None,
+            )
+            if not monitoring and matching_device:
+                if matching_device.index != settings.camera_index:
+                    settings = self.settings_service.update(
+                        settings.model_copy(
+                            update={"camera_index": matching_device.index}
+                        )
+                    )
+            elif settings.camera_id and not matching_device and not discovery_error:
+                with self._lock:
+                    self._camera_notice = (
+                        "The selected camera is unavailable. Connect it again or "
+                        "choose another available camera."
+                    )
+            with self._lock:
+                notice = self._camera_notice
         return {
             "cameras": [
                 {
@@ -181,6 +200,8 @@ class CameraManager:
         if previous_settings.camera_id == device.camera_id:
             if not was_monitoring:
                 self._probe_camera(device)
+            with self._lock:
+                self._camera_notice = None
             return self.cameras()
 
         self.stop()
@@ -275,13 +296,12 @@ class CameraManager:
             )
 
     def _probe_camera(self, device: CameraDevice):
-        backend = cv2.CAP_AVFOUNDATION if platform.system() == "Darwin" else cv2.CAP_ANY
-        capture = cv2.VideoCapture(device.index, backend)
+        capture = open_camera(device.index)
+        if capture is None:
+            raise ValueError(
+                f"Cannot open {device.name}. Check camera permissions and try again."
+            )
         try:
-            if not capture.isOpened():
-                raise ValueError(
-                    f"Cannot open {device.name}. Check macOS camera permissions and try again."
-                )
             for _ in range(10):
                 ok, _frame = capture.read()
                 if ok:
@@ -341,9 +361,8 @@ class CameraManager:
         capture = None
         try:
             settings = self.settings_service.get()
-            backend = cv2.CAP_AVFOUNDATION if platform.system() == "Darwin" else cv2.CAP_ANY
-            capture = cv2.VideoCapture(settings.camera_index, backend)
-            if not capture.isOpened():
+            capture = open_camera(settings.camera_index)
+            if capture is None:
                 self._set_error(
                     "Cannot open the selected camera. Check macOS camera permissions "
                     "and whether the device is still connected."

@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router, websocket_router
 from backend.detection.camera_manager import CameraManager
@@ -31,3 +34,31 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(websocket_router)
+
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if (FRONTEND_DIST / "index.html").is_file():
+    assets = FRONTEND_DIST / "assets"
+    if assets.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=assets),
+            name="frontend-assets",
+        )
+
+    @app.get("/", include_in_schema=False)
+    def frontend_index():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def frontend_route(path: str):
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API endpoint not found.")
+
+        requested = (FRONTEND_DIST / path).resolve()
+        try:
+            requested.relative_to(FRONTEND_DIST.resolve())
+        except ValueError:
+            return FileResponse(FRONTEND_DIST / "index.html")
+        if requested.is_file():
+            return FileResponse(requested)
+        return FileResponse(FRONTEND_DIST / "index.html")
