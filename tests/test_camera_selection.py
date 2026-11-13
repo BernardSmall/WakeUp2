@@ -3,10 +3,12 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import cv2
 import numpy as np
 
 from backend.config import DetectionSettings
 from backend.detection.camera_discovery import CameraDevice, discover_cameras
+from backend.detection.camera_platform import capture_backends
 from backend.detection.camera_manager import CameraManager
 
 
@@ -54,7 +56,64 @@ class CameraDiscoveryTests(unittest.TestCase):
             cameras, error = discover_cameras()
 
         self.assertEqual(cameras, [])
-        self.assertIn("macOS only", error)
+        self.assertIn("macOS and Windows", error)
+
+    def test_discovers_windows_camera_names_without_opening_cameras(self):
+        from unittest.mock import Mock
+
+        graph = SimpleNamespace(
+            get_input_devices=lambda: ["USB Camera", "USB Camera", "Laptop Camera"]
+        )
+        comtypes = SimpleNamespace(CoInitialize=Mock(), CoUninitialize=Mock())
+        pygrabber_graph = SimpleNamespace(FilterGraph=lambda: graph)
+        with patch("backend.detection.camera_discovery.platform.system", return_value="Windows"):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "comtypes": comtypes,
+                    "pygrabber": SimpleNamespace(),
+                    "pygrabber.dshow_graph": pygrabber_graph,
+                },
+            ):
+                cameras, error = discover_cameras()
+
+        self.assertIsNone(error)
+        self.assertEqual(
+            [camera.name for camera in cameras],
+            ["USB Camera", "USB Camera", "Laptop Camera"],
+        )
+        self.assertEqual(
+            [camera.camera_id for camera in cameras],
+            ["directshow:USB Camera#1", "directshow:USB Camera#2", "directshow:Laptop Camera"],
+        )
+        comtypes.CoInitialize.assert_called_once()
+        comtypes.CoUninitialize.assert_called_once()
+
+
+class CameraPlatformTests(unittest.TestCase):
+    def test_windows_prefers_directshow_then_media_foundation(self):
+        with patch("backend.detection.camera_platform.platform.system", return_value="Windows"):
+            self.assertEqual(capture_backends(), (cv2.CAP_DSHOW, cv2.CAP_MSMF))
+
+    def test_macos_prefers_avfoundation(self):
+        with patch("backend.detection.camera_platform.platform.system", return_value="Darwin"):
+            self.assertEqual(
+                capture_backends(),
+                (cv2.CAP_AVFOUNDATION, cv2.CAP_ANY),
+            )
+
+    def test_falls_back_when_preferred_backend_cannot_open_device(self):
+        from backend.detection.camera_platform import open_camera
+
+        failed = _FakeCapture(opened=False)
+        working = _FakeCapture()
+        with patch("backend.detection.camera_platform.platform.system", return_value="Windows"):
+            with patch(
+                "backend.detection.camera_platform.cv2.VideoCapture",
+                side_effect=[failed, working],
+            ):
+                self.assertIs(open_camera(0), working)
+        self.assertTrue(failed.released)
 
 
 class CameraSelectionTests(unittest.TestCase):
@@ -156,14 +215,15 @@ class CameraSelectionTests(unittest.TestCase):
                     self.assertEqual(settings_service.get().camera_id, CAMERAS[0].camera_id)
                     self.assertEqual(
                         [capture.index for capture in tracker.captures],
-                        [0, 2, 0],
+                        [0, 2, 2, 0],
                     )
                     self.assertTrue(tracker.captures[0].released)
                     self.assertTrue(tracker.captures[1].released)
+                    self.assertTrue(tracker.captures[2].released)
                     self.assertLessEqual(tracker.max_open, 1)
                     manager.stop()
 
-        self.assertTrue(tracker.captures[2].released)
+        self.assertTrue(tracker.captures[3].released)
 
     def test_restores_saved_stable_id_and_updates_ephemeral_index(self):
         saved = DetectionSettings(camera_index=0, camera_id=CAMERAS[1].camera_id)
@@ -187,8 +247,8 @@ class CameraSelectionTests(unittest.TestCase):
             return_value=([CAMERAS[0]], None),
         ):
             manager = CameraManager(settings_service, _FakeSessionService())
+            catalog = manager.cameras()
 
-        catalog = manager.cameras()
         self.assertEqual(settings_service.get().camera_id, CAMERAS[0].camera_id)
         self.assertIn("previously selected camera is unavailable", catalog["notice"])
 

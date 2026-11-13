@@ -1,10 +1,10 @@
-import sys
 import time
 from math import hypot
 
 import cv2
 import mediapipe as mp
 
+from backend.detection.camera_platform import open_camera
 from settings import (
     ALERT_SOUND_PATH,
     CAM_INDEX,
@@ -86,15 +86,13 @@ def flash_screen(frame):
 def main():
     sound_manager = SoundManager(ALERT_SOUND_PATH)
     tracker = EyeClosureTracker()
-    backend = cv2.CAP_AVFOUNDATION if sys.platform == "darwin" else cv2.CAP_ANY
-    cap = cv2.VideoCapture(CAM_INDEX, backend)
+    cap = open_camera(CAM_INDEX)
 
-    if not cap.isOpened():
+    if cap is None:
         print(
             f"Cannot open camera {CAM_INDEX}. Check camera permissions and "
             "whether another application is using it."
         )
-        cap.release()
         return
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
