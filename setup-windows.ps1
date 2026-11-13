@@ -48,9 +48,9 @@ function Find-Node {
 
 function Invoke-Python($Python, [string[]]$Arguments) {
     if ($Python.Prefix) {
-        & $Python.Command $Python.Prefix @Arguments
+        & $Python.Command $Python.Prefix @Arguments | Out-Host
     } else {
-        & $Python.Command @Arguments
+        & $Python.Command @Arguments | Out-Host
     }
     return $LASTEXITCODE
 }
