@@ -29,6 +29,8 @@ jobs:
         run: ./setup-windows.ps1
       - name: Run macOS setup
         if: runner.os == 'macOS'
+        env:
+          PIP_ONLY_BINARY: sentencepiece
         run: bash ./setup-macos.command
       - name: Run Python tests
         shell: bash
