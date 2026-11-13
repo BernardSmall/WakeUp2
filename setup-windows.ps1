@@ -17,7 +17,7 @@ function Refresh-Path {
 function Find-Python {
     $Launcher = Get-Command py -ErrorAction SilentlyContinue
     if ($Launcher) {
-        foreach ($Version in @("3.12", "3.11", "3.10")) {
+        foreach ($Version in @("3.11", "3.12", "3.10")) {
             & $Launcher.Source "-$Version" $Check python *> $null
             if ($LASTEXITCODE -eq 0) {
                 return [pscustomobject]@{ Command = $Launcher.Source; Prefix = "-$Version"; Version = $Version }
