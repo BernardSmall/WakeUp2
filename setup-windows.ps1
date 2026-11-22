@@ -11,7 +11,7 @@ function Stop-Setup($Message) {
 function Refresh-Path {
     $Machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $User = [Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = "$Machine;$User"
+    $env:Path = "$Machine;$User;$env:Path"
 }
 
 function Find-Python {

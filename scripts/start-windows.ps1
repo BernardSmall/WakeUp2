@@ -1,3 +1,7 @@
+param(
+    [switch]$SmokeTest
+)
+
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Python = Join-Path $Root "venv\Scripts\python.exe"
@@ -23,8 +27,8 @@ function Test-TcpPort {
 function Test-WakeUp2 {
     try {
         $Health = Invoke-RestMethod -Uri $HealthUrl -TimeoutSec 2
-        $Home = Invoke-WebRequest -Uri $Url -TimeoutSec 2
-        return $Health.status -eq "ok" -and $Health.version -eq "1.0.0" -and $Home.Content.Contains("WakeUp2")
+        $HomePage = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
+        return $Health.status -eq "ok" -and $Health.version -eq "1.0.0" -and $HomePage.Content.Contains("WakeUp2")
     } catch {
         return $false
     }
@@ -71,6 +75,16 @@ try {
         if (Test-Path $Stderr) { Get-Content $Stderr -Tail 30 }
         if (Test-Path $Stdout) { Get-Content $Stdout -Tail 30 }
         exit 1
+    }
+
+    if ($SmokeTest) {
+        $Status = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/status" -TimeoutSec 2
+        if ($Status.monitoring) {
+            throw "WakeUp2 unexpectedly started monitoring during launcher smoke test."
+        }
+        Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/monitoring/stop" -Method Post -TimeoutSec 6 | Out-Null
+        Write-Host "Windows launcher smoke test passed."
+        exit 0
     }
 
     Write-Host "WakeUp2 is ready. Opening $Url"

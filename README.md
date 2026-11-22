@@ -26,7 +26,7 @@ Download and extract the GitHub ZIP, then use the setup and launch scripts in th
 2. Run `start-windows.bat`. WakeUp2 opens in your default browser when ready.
 3. Keep the launcher window open; press Ctrl+C in it to stop WakeUp2.
 
-The batch wrappers use PowerShell execution-policy bypass only in the child PowerShell process; they do not change machine or user policy.
+The project launcher is named `start-windows.bat` (there is no separate `start.bat`). The batch wrappers use PowerShell execution-policy bypass only in the child PowerShell process; they do not change machine or user policy.
 
 ### macOS
 
@@ -128,7 +128,7 @@ npm ci
 npm run build
 ```
 
-GitHub Actions runs dependency installation, backend tests, static-serving checks, and frontend builds on Windows and macOS. Automated camera tests use mocks; a green CI job does not prove that every physical webcam works.
+GitHub Actions runs dependency installation, backend tests, static-serving checks, and frontend builds on Windows and macOS. The Windows job also runs the launcher in a smoke-test mode that verifies startup, health/frontend responses, and shutdown without opening a browser or camera. Automated camera tests use mocks; a green CI job does not prove that every physical webcam works.
 
 ## Local data, privacy, and permissions
 
