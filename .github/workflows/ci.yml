@@ -6,6 +6,8 @@ on:
 
 jobs:
   test:
+    env:
+      CI: "true"
     strategy:
       fail-fast: false
       matrix:
@@ -25,8 +27,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Run Windows setup
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./setup-windows.ps1
+        shell: cmd
+        run: setup-windows.bat
       - name: Run macOS setup
         if: runner.os == 'macOS'
         env:
@@ -39,3 +41,7 @@ jobs:
       - name: Run Python tests on Windows
         if: runner.os == 'Windows'
         run: .\venv\Scripts\python.exe -m unittest discover -s tests -v
+      - name: Test Windows launcher
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: start-windows.bat -SmokeTest
