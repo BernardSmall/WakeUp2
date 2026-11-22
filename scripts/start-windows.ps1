@@ -27,7 +27,7 @@ function Test-TcpPort {
 function Test-WakeUp2 {
     try {
         $Health = Invoke-RestMethod -Uri $HealthUrl -TimeoutSec 2
-        $Home = Invoke-WebRequest -Uri $Url -TimeoutSec 2
+        $Home = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
         return $Health.status -eq "ok" -and $Health.version -eq "1.0.0" -and $Home.Content.Contains("WakeUp2")
     } catch {
         return $false
